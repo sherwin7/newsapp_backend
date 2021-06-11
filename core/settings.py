@@ -132,4 +132,5 @@ NEWSAPI_KEY = os.environ.get("NEWSAPI_API_KEY", "")
 CORS_ORIGIN_WHITELIST = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://newsapp.sherwinp.dev",
 ]
