@@ -1,5 +1,5 @@
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, parser_classes
+from rest_framework.decorators import api_view
 
 from core.settings import NEWSAPI_KEY
 from newsapi import NewsApiClient
@@ -8,8 +8,7 @@ from newsapi import NewsApiClient
 @api_view(["GET"])
 def news_search(request):
     search_string = request.query_params.get("q", "")
-    page = request.query_params.get("page", 1)
-    page_size = request.query_params.get("page_size", 5)
+    output = list()
 
     if not search_string:
         return Response(
@@ -17,61 +16,58 @@ def news_search(request):
             status=400,
         )
 
-    try:
-        page = int(page)
-    except ValueError:
-        page = 1
-
-    try:
-        page_size = int(page_size)
-        if page_size not in [5, 10]:
-            raise ValueError
-    except ValueError:
-        page_size = 10
-
-    if page > 100 / page_size:
-        page = int(100 / page_size)
-
     newsapi = NewsApiClient(api_key=NEWSAPI_KEY)
 
     all_articles = newsapi.get_everything(
         q=search_string,
         language="en",
         sort_by="relevancy",
-        page=page,
-        page_size=page_size,
+        page_size=100,
     )
-    return Response(dict(details=all_articles), status=200)
+
+    for news in all_articles["articles"]:
+        output.append(
+            dict(
+                source_name=news["source"]["name"],
+                heading=news["title"],
+                description=news["description"],
+                imageURL=news["urlToImage"],
+                publishedAt=news["publishedAt"],
+                articleLink=news["url"],
+            )
+        )
+    return Response(dict(details=output), status=200)
 
 
 @api_view(["GET"])
 def get_trending_news(request):
-    page = request.query_params.get("page", 1)
-    page_size = request.query_params.get("page_size", 5)
-    country = request.query_params.get("country", "in")
-
-    try:
-        page = int(page)
-    except ValueError:
-        page = 1
-
-    try:
-        page_size = int(page_size)
-        if page_size not in [5, 10]:
-            raise ValueError
-    except ValueError:
-        page_size = 5
-
-    if page > 100 / page_size:
-        page = int(100 / page_size)
+    output = []
+    category = request.data.get("category", "")
 
     newsapi = NewsApiClient(api_key=NEWSAPI_KEY)
 
-    top_headlines = newsapi.get_top_headlines(
-        language="en",
-        country=country,
-        page=page,
-        page_size=page_size,
-    )
+    if category:
+        top_headlines = newsapi.get_top_headlines(
+            language="en",
+            page_size=100,
+            category=category,
+        )
+    else:
+        top_headlines = newsapi.get_top_headlines(
+            language="en",
+            page_size=100,
+        )
 
-    return Response(dict(details=top_headlines), status=200)
+    for news in top_headlines["articles"]:
+        output.append(
+            dict(
+                source_name=news["source"]["name"],
+                heading=news["title"],
+                description=news["description"],
+                imageURL=news["urlToImage"],
+                publishedAt=news["publishedAt"],
+                articleLink=news["url"],
+            )
+        )
+
+    return Response(dict(details=output), status=200)
